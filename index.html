@@ -434,6 +434,7 @@ const STATUTS=[
 
 /* ══ STATE ══ */
 const SK="renov_v5";
+/* Sauvegarde projets + réglages ensemble */
 const sv=async d=>{
   try{localStorage.setItem(SK,JSON.stringify(d));}catch{}
   try{
@@ -444,16 +445,30 @@ const sv=async d=>{
     },{onConflict:"cle"});
   }catch(e){console.error("Supabase save:",e);}
 };
-const ld=()=>{try{const d=localStorage.getItem(SK);return d?JSON.parse(d):null;}catch{return null;}};
+/* Renvoie {projects, rglg} ou null */
+const ld=()=>{
+  try{
+    const d=localStorage.getItem(SK);
+    if(!d) return null;
+    const p=JSON.parse(d);
+    /* Compatibilité ancien format (tableau seul) */
+    if(Array.isArray(p)) return {projects:p, rglg:null};
+    return p;
+  }catch{return null;}
+};
 
 async function syncFromSupabase(){
   try{
     const {data,error}=await db.from("reglages").select("valeur").eq("cle","app_state").maybeSingle();
     if(error || !data?.valeur) return;
-    const projects=JSON.parse(data.valeur);
-    if(Array.isArray(projects)){
-      S.projects=projects;
-      try{localStorage.setItem(SK,JSON.stringify(projects));}catch{}
+    const parsed=JSON.parse(data.valeur);
+    /* Compatibilité ancien format (tableau seul) */
+    const projects=Array.isArray(parsed)?parsed:(parsed.projects||[]);
+    const rglg=Array.isArray(parsed)?null:(parsed.rglg||null);
+    if(projects.length>0||rglg){
+      S.projects=projects.length>0?projects:S.projects;
+      if(rglg) S.rglg={...S.rglg,...rglg};
+      try{localStorage.setItem(SK,JSON.stringify({projects:S.projects,rglg:S.rglg}));}catch{}
       render();
     }
   }catch(e){console.error("Supabase load:",e);}
@@ -483,14 +498,16 @@ const SEED=[{
   },
 }];
 
+const _ld=ld();
+const _defRglg={nom:"C R B",siret:"999 383 920 00017",tel:"06 31 76 59 84",email:"",adresse:"80 Rue Charles GIRAUD, 59880 SAINT-SAULVE",hon_pct:"2"};
 let S={
-  projects:ld()||SEED, cur:null, sub:null, tab:"projets",
+  projects:(_ld?.projects)||SEED, cur:null, sub:null, tab:"projets",
   aiText:"", genRap:false,
   catOpenSec:null, catSearch:"", catAdded:{},
   activeRoom:"salon", coutsView:"pieces",
   wizStep:0, openLigne:null, photoView:null,
   filtreRec:"all", filtreStatut:"all", tri:"date", search:"",
-  rglg:{nom:"C R B",siret:"999 383 920 00017",tel:"06 31 76 59 84",email:"",adresse:"80 Rue Charles GIRAUD, 59880 SAINT-SAULVE",hon_pct:"2"},
+  rglg:{..._defRglg,...(_ld?.rglg||{})},
 };
 
 const conclu=p=>{
@@ -519,7 +536,7 @@ function render(){
   if(S.cur){hp.style.display="block";document.getElementById("hdrc").textContent=S.cur.client;document.getElementById("hdrs").textContent=S.cur.surface+"m² · "+S.cur.ville;}
   else hp.style.display="none";
   document.querySelectorAll(".ni").forEach(el=>el.classList.toggle("on",el.dataset.tab===S.tab));
-  sv(S.projects);
+  sv({projects:S.projects,rglg:S.rglg});
   if(S.tab==="projets")mc.innerHTML=rProjets();
   else if(S.tab==="detail")mc.innerHTML=S.cur?rDetail():`<div class="empty"><div class="ei">📋</div><div class="et">Ouvrez un projet</div><p>Allez dans Projets et sélectionnez un bien</p></div>`;
   else if(S.tab==="couts")mc.innerHTML=S.cur?rCouts():`<div class="empty"><div class="ei">💶</div><div class="et">Ouvrez un projet d'abord</div></div>`;
@@ -1216,6 +1233,8 @@ function rReglages(){
 function saveRglg(){
   const g=v=>document.getElementById(v)?.value||"";
   S.rglg={nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
+  /* Sauvegarde vers localStorage ET Supabase */
+  sv({projects:S.projects,rglg:S.rglg});
   toast("✅ Réglages sauvegardés");
 }
 function exportData(){const d=localStorage.getItem(SK);if(d){navigator.clipboard?.writeText(d);toast("📤 Données copiées");}else toast("Aucune donnée");}
@@ -1428,17 +1447,21 @@ function loadLogo(event){
  const reader=new FileReader();
  reader.onload=function(e){
    const logo=e.target.result;
-   localStorage.setItem('entreprise_logo',logo);
+   /* Sauvegarde logo dans S.rglg + Supabase */
+   S.rglg.logo=logo;
+   sv({projects:S.projects,rglg:S.rglg});
    setLogoUI(logo);
  };
  reader.readAsDataURL(file);
 }
 function removeLogo(){
- localStorage.removeItem('entreprise_logo');
+ delete S.rglg.logo;
+ sv({projects:S.projects,rglg:S.rglg});
  clearLogoUI();
 }
 window.addEventListener('load',()=>{
- const logo=localStorage.getItem('entreprise_logo');
+ /* Charger logo depuis S.rglg (Supabase/localStorage) */
+ const logo=S.rglg?.logo||null;
  if(!logo) return;
  setLogoUI(logo);
 });
