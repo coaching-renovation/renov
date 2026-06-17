@@ -224,30 +224,14 @@ textarea.fi{min-height:90px;resize:none}
 <body>
 <div class="app">
   <div class="hdr">
-    <div id="logo-box"
-     style="width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#7c3aed);border-radius:9px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
-
-  <span id="logo-text"
-        style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:#fff">
-        CRB
-  </span>
-
-  <img id="app-logo"
-       style="display:none;width:100%;height:100%;object-fit:contain">
-</div>
-
-<div style="flex:1">
-  <div id="app-name"
-       class="sy"
-       style="font-size:15px;font-weight:800;letter-spacing:2px">
-       C R <span style="color:var(--accent2)">B</span>
-  </div>
-
-  <div id="app-activity"
-       style="font-size:10px;color:var(--muted)">
-       Micro-Entrepreneur · Réparation Bâtiment
-  </div>
-</div>
+    <div id="hdr-logo-wrap" style="width:36px;height:36px;border-radius:9px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.4)">
+      <div id="hdr-logo-fallback" style="width:100%;height:100%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:#fff;letter-spacing:-0.5px">CRB</div>
+      <img id="hdr-logo-img" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:contain;background:#fff">
+    </div>
+    <div style="flex:1">
+      <div class="sy" style="font-size:15px;font-weight:800;letter-spacing:2px">C R <span style="color:var(--accent2)">B</span></div>
+      <div style="font-size:10px;color:var(--muted)">Micro-Entrepreneur · Réparation Bâtiment</div>
+    </div>
     <div id="hdrp" style="text-align:right;display:none">
       <div id="hdrc" style="font-size:11px;color:var(--accent2);font-weight:600"></div>
       <div id="hdrs" style="font-size:10px;color:var(--muted)"></div>
@@ -1187,6 +1171,26 @@ function rTableau(){
 function rReglages(){
   const f=S.rglg;
   return`<div style="font-size:16px;font-weight:800;font-family:'Syne',sans-serif;margin-bottom:14px">⚙️ Réglages</div>
+  <div class="sl">Logo & Identité</div>
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;gap:16px">
+      <div>
+        <div id="logo-preview" onclick="document.getElementById('logo-input').click()"
+          style="width:80px;height:80px;border:2px dashed var(--border2);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--navy)">
+          <span id="logo-placeholder" style="font-size:36px">🏢</span>
+          <img id="logo-img" style="display:none;width:100%;height:100%;object-fit:contain;">
+        </div>
+        <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="loadLogo(event)">
+        <div style="font-size:10px;color:var(--muted);margin-top:5px;text-align:center">Cliquez pour<br>choisir</div>
+        <button class="btn bs bsm" style="margin-top:6px;width:80px;font-size:11px;padding:6px 0" onclick="removeLogo()">✕ Supprimer</button>
+      </div>
+      <div style="flex:1">
+        <div class="fg"><label class="fl">Nom entreprise / Auto</label><input class="fi" id="s-nom" placeholder="CRB" value="${S.rglg?.s_nom||''}"/></div>
+        <div class="fg"><label class="fl">Activité / Statut</label><input class="fi" id="s-activite" placeholder="Micro-Entrepreneur — Réparation Bâtiment" value="${S.rglg?.s_activite||''}"/></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Apparaît dans la bannière et les rapports PDF · PNG ou JPG recommandé pour le logo</div>
+      </div>
+    </div>
+  </div>
   <div class="sl">Informations consultant</div>
   <div class="card">
     <div class="fg"><label class="fl">Nom / Société</label><input class="fi" id="rg_nom" value="${f.nom}"/></div>
@@ -1211,7 +1215,7 @@ function rReglages(){
 }
 function saveRglg(){
   const g=v=>document.getElementById(v)?.value||"";
-  S.rglg={nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon")};
+  S.rglg={nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
   toast("✅ Réglages sauvegardés");
 }
 function exportData(){const d=localStorage.getItem(SK);if(d){navigator.clipboard?.writeText(d);toast("📤 Données copiées");}else toast("Aucune donnée");}
@@ -1397,60 +1401,46 @@ function doDelProj(id){
 render();
 </script>
 
-<div class="card-title">Logo & Identité</div>
-<div style="display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap; margin:12px 0">
-  <div>
-    <div id="logo-preview" onclick="document.getElementById('logo-input').click()"
-      style="width:120px;height:120px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:#fff">
-      <span id="logo-placeholder" style="font-size:48px">🏢</span>
-      <img id="logo-img" style="display:none;width:100%;height:100%;object-fit:contain;">
-    </div>
-
-    <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="loadLogo(event)">
-
-    <div style="font-size:11px;color:#666;margin-top:6px;text-align:center">
-      Cliquez pour choisir<br>votre logo
-    </div>
-
-    <button style="margin-top:8px;width:100%" onclick="removeLogo()">
-      ✕ Supprimer
-    </button>
-  </div>
-
-  <div style="flex:1;min-width:280px">
-    <label>Nom entreprise / Auto</label>
-    <input type="text" id="s-nom" placeholder="CRB">
-
-    <label>Activité / Statut</label>
-    <input type="text" id="s-activite" placeholder="Micro-Entrepreneur — Réparation Bâtiment">
-  </div>
-</div>
 
 <script>
+function setLogoUI(logo){
+ /* Section paramètres */
+ document.getElementById('logo-img').src=logo;
+ document.getElementById('logo-img').style.display='block';
+ document.getElementById('logo-placeholder').style.display='none';
+ /* Bannière header */
+ document.getElementById('hdr-logo-img').src=logo;
+ document.getElementById('hdr-logo-img').style.display='block';
+ document.getElementById('hdr-logo-fallback').style.display='none';
+}
+function clearLogoUI(){
+ /* Section paramètres */
+ document.getElementById('logo-img').style.display='none';
+ document.getElementById('logo-placeholder').style.display='block';
+ /* Bannière header */
+ document.getElementById('hdr-logo-img').src='';
+ document.getElementById('hdr-logo-img').style.display='none';
+ document.getElementById('hdr-logo-fallback').style.display='flex';
+}
 function loadLogo(event){
  const file=event.target.files[0];
  if(!file) return;
  const reader=new FileReader();
  reader.onload=function(e){
    const logo=e.target.result;
-   document.getElementById('logo-img').src=logo;
-   document.getElementById('logo-img').style.display='block';
-   document.getElementById('logo-placeholder').style.display='none';
    localStorage.setItem('entreprise_logo',logo);
+   setLogoUI(logo);
  };
  reader.readAsDataURL(file);
 }
 function removeLogo(){
  localStorage.removeItem('entreprise_logo');
- document.getElementById('logo-img').style.display='none';
- document.getElementById('logo-placeholder').style.display='block';
+ clearLogoUI();
 }
 window.addEventListener('load',()=>{
  const logo=localStorage.getItem('entreprise_logo');
  if(!logo) return;
- document.getElementById('logo-img').src=logo;
- document.getElementById('logo-img').style.display='block';
- document.getElementById('logo-placeholder').style.display='none';
+ setLogoUI(logo);
 });
 </script>
 
