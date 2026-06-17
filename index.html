@@ -248,6 +248,15 @@ textarea.fi{min-height:90px;resize:none}
 </div>
 <div id="toast" class="toast hidden"></div>
 
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const { createClient } = supabase;
+  const SUPABASE_URL = 'https://pvxkidlacnfchajphjsc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2eGtpZGxhY25mY2hhanBoanNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODU3OTYsImV4cCI6MjA5NzI2MTc5Nn0.iK3zs9sBNDTZLhLGT4GY9BI8WKJ7b9KcyUS31Ixa5VI';
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+
 <script>
 /* ══ CATALOGUE ══ */
 const CAT=[
