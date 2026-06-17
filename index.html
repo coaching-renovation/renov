@@ -225,12 +225,12 @@ textarea.fi{min-height:90px;resize:none}
 <div class="app">
   <div class="hdr">
     <div id="hdr-logo-wrap" style="width:36px;height:36px;border-radius:9px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.4)">
-      <div id="hdr-logo-fallback" style="width:100%;height:100%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:#fff;letter-spacing:-0.5px">CRB</div>
+      <div id="hdr-logo-fallback" style="width:100%;height:100%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:#fff;letter-spacing:-0.5px" id="hdr-logo-initiales">CRB</div>
       <img id="hdr-logo-img" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:contain;background:#fff">
     </div>
     <div style="flex:1">
-      <div class="sy" style="font-size:15px;font-weight:800;letter-spacing:2px">C R <span style="color:var(--accent2)">B</span></div>
-      <div style="font-size:10px;color:var(--muted)">Micro-Entrepreneur · Réparation Bâtiment</div>
+      <div class="sy" style="font-size:15px;font-weight:800;letter-spacing:2px" id="hdr-nom">C R B</div>
+      <div style="font-size:10px;color:var(--muted)" id="hdr-activite">Micro-Entrepreneur · Réparation Bâtiment</div>
     </div>
     <div id="hdrp" style="text-align:right;display:none">
       <div id="hdrc" style="font-size:11px;color:var(--accent2);font-weight:600"></div>
@@ -1230,11 +1230,23 @@ function rReglages(){
   <div style="height:7px"></div>
   <button class="btn bs" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="if(confirm('Réinitialiser toutes les données ?')){localStorage.removeItem('${SK}');location.reload();}">🗑️ Réinitialiser l'application</button>`;
 }
+function updateHdrTexts(){
+  const nom=S.rglg?.s_nom||S.rglg?.nom||"C R B";
+  const act=S.rglg?.s_activite||"Micro-Entrepreneur · Réparation Bâtiment";
+  const el_nom=document.getElementById("hdr-nom");
+  const el_act=document.getElementById("hdr-activite");
+  const el_ini=document.getElementById("hdr-logo-initiales");
+  if(el_nom) el_nom.textContent=nom;
+  if(el_act) el_act.textContent=act;
+  if(el_ini) el_ini.textContent=(nom.replace(/\s+/g,"")||"CRB").slice(0,3).toUpperCase();
+}
 function saveRglg(){
   const g=v=>document.getElementById(v)?.value||"";
-  S.rglg={nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
+  S.rglg={...S.rglg,nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
   /* Sauvegarde vers localStorage ET Supabase */
   sv({projects:S.projects,rglg:S.rglg});
+  /* Mettre à jour la bannière immédiatement */
+  updateHdrTexts();
   toast("✅ Réglages sauvegardés");
 }
 function exportData(){const d=localStorage.getItem(SK);if(d){navigator.clipboard?.writeText(d);toast("📤 Données copiées");}else toast("Aucune donnée");}
@@ -1460,10 +1472,11 @@ function removeLogo(){
  clearLogoUI();
 }
 window.addEventListener('load',()=>{
+ /* Mettre à jour le texte de la bannière */
+ updateHdrTexts();
  /* Charger logo depuis S.rglg (Supabase/localStorage) */
  const logo=S.rglg?.logo||null;
- if(!logo) return;
- setLogoUI(logo);
+ if(logo) setLogoUI(logo);
 });
 </script>
 
