@@ -431,8 +431,30 @@ const STATUTS=[
 
 /* ══ STATE ══ */
 const SK="renov_v5";
-const sv=d=>{try{localStorage.setItem(SK,JSON.stringify(d));}catch{}};
+const sv=async d=>{
+  try{localStorage.setItem(SK,JSON.stringify(d));}catch{}
+  try{
+    await db.from("reglages").upsert({
+      cle:"app_state",
+      valeur:JSON.stringify(d),
+      updated_at:new Date().toISOString()
+    },{onConflict:"cle"});
+  }catch(e){console.error("Supabase save:",e);}
+};
 const ld=()=>{try{const d=localStorage.getItem(SK);return d?JSON.parse(d):null;}catch{return null;}};
+
+async function syncFromSupabase(){
+  try{
+    const {data,error}=await db.from("reglages").select("valeur").eq("cle","app_state").maybeSingle();
+    if(error || !data?.valeur) return;
+    const projects=JSON.parse(data.valeur);
+    if(Array.isArray(projects)){
+      S.projects=projects;
+      try{localStorage.setItem(SK,JSON.stringify(projects));}catch{}
+      render();
+    }
+  }catch(e){console.error("Supabase load:",e);}
+}
 let _id=500; const uid=()=>String(++_id);
 const fe=n=>Number(n||0).toLocaleString("fr-FR",{maximumFractionDigits:0})+" €";
 const fep=n=>Number(n||0).toFixed(1)+" %";
@@ -485,6 +507,8 @@ const rentab=p=>{
 };
 
 /* ══ RENDER ══ */
+syncFromSupabase();
+
 function render(){
   const mc=document.getElementById("mc");
   mc.className="si ani";
