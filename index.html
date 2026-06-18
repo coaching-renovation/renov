@@ -229,8 +229,8 @@ textarea.fi{min-height:90px;resize:none}
       <img id="hdr-logo-img" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:contain;background:#fff">
     </div>
     <div style="flex:1">
-      <div class="sy" style="font-size:15px;font-weight:800;letter-spacing:2px">C R <span style="color:var(--accent2)">B</span></div>
-      <div style="font-size:10px;color:var(--muted)">Micro-Entrepreneur · Réparation Bâtiment</div>
+      <div class="sy" id="hdr-nom" style="font-size:15px;font-weight:800;letter-spacing:2px">C R <span style="color:var(--accent2)">B</span></div>
+      <div id="hdr-activite" style="font-size:10px;color:var(--muted)">Micro-Entrepreneur · Réparation Bâtiment</div>
     </div>
     <div id="hdrp" style="text-align:right;display:none">
       <div id="hdrc" style="font-size:11px;color:var(--accent2);font-weight:600"></div>
@@ -435,6 +435,9 @@ const STATUTS=[
 
 /* ══ STATE ══ */
 const SK="renov_v5";
+const SK_RG="renov_rglg_v1";
+const svRglg=()=>{try{localStorage.setItem(SK_RG,JSON.stringify(S.rglg));}catch{}};
+const ldRglg=()=>{try{const d=localStorage.getItem(SK_RG);return d?JSON.parse(d):null;}catch{return null;}};
 const sv=async d=>{
   try{localStorage.setItem(SK,JSON.stringify(d));}catch{}
   try{
@@ -491,7 +494,7 @@ let S={
   activeRoom:"salon", coutsView:"pieces",
   wizStep:0, openLigne:null, photoView:null,
   filtreRec:"all", filtreStatut:"all", tri:"date", search:"",
-  rglg:{nom:"C R B",siret:"999 383 920 00017",tel:"06 31 76 59 84",email:"",adresse:"80 Rue Charles GIRAUD, 59880 SAINT-SAULVE",hon_pct:"2"},
+  rglg:ldRglg()||{nom:"C R B",siret:"999 383 920 00017",tel:"06 31 76 59 84",email:"",adresse:"80 Rue Charles GIRAUD, 59880 SAINT-SAULVE",hon_pct:"2",s_nom:"CRB",s_activite:"Micro-Entrepreneur · Réparation Bâtiment"},
 };
 
 const conclu=p=>{
@@ -519,6 +522,7 @@ function render(){
   const hp=document.getElementById("hdrp");
   if(S.cur){hp.style.display="block";document.getElementById("hdrc").textContent=S.cur.client;document.getElementById("hdrs").textContent=S.cur.surface+"m² · "+S.cur.ville;}
   else hp.style.display="none";
+  updateHdrText();
   document.querySelectorAll(".ni").forEach(el=>el.classList.toggle("on",el.dataset.tab===S.tab));
   sv(S.projects);
   if(S.tab==="projets")mc.innerHTML=rProjets();
@@ -1518,6 +1522,8 @@ function rReglages(){
 function saveRglg(){
   const g=v=>document.getElementById(v)?.value||"";
   S.rglg={nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
+  svRglg();
+  updateHdrText();
   toast("✅ Réglages sauvegardés");
 }
 function exportData(){const d=localStorage.getItem(SK);if(d){navigator.clipboard?.writeText(d);toast("📤 Données copiées");}else toast("Aucune donnée");}
@@ -1705,6 +1711,14 @@ render();
 
 
 <script>
+function updateHdrText(){
+ const nom=S.rglg?.s_nom||"";
+ const act=S.rglg?.s_activite||"";
+ const n=document.getElementById('hdr-nom');
+ const a=document.getElementById('hdr-activite');
+ if(n&&nom)n.textContent=nom;
+ if(a&&act)a.textContent=act;
+}
 function setLogoUI(logo){
  /* Section paramètres */
  document.getElementById('logo-img').src=logo;
@@ -1741,8 +1755,8 @@ function removeLogo(){
 }
 window.addEventListener('load',()=>{
  const logo=localStorage.getItem('entreprise_logo');
- if(!logo) return;
- setLogoUI(logo);
+ if(logo) setLogoUI(logo);
+ updateHdrText();
 });
 </script>
 
