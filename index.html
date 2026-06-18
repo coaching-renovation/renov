@@ -225,12 +225,12 @@ textarea.fi{min-height:90px;resize:none}
 <div class="app">
   <div class="hdr">
     <div id="hdr-logo-wrap" style="width:36px;height:36px;border-radius:9px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.4)">
-      <div id="hdr-logo-fallback" style="width:100%;height:100%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:#fff;letter-spacing:-0.5px" id="hdr-logo-initiales">CRB</div>
+      <div id="hdr-logo-fallback" style="width:100%;height:100%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:#fff;letter-spacing:-0.5px">CRB</div>
       <img id="hdr-logo-img" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:contain;background:#fff">
     </div>
     <div style="flex:1">
-      <div class="sy" style="font-size:15px;font-weight:800;letter-spacing:2px" id="hdr-nom">C R B</div>
-      <div style="font-size:10px;color:var(--muted)" id="hdr-activite">Micro-Entrepreneur · Réparation Bâtiment</div>
+      <div class="sy" style="font-size:15px;font-weight:800;letter-spacing:2px">C R <span style="color:var(--accent2)">B</span></div>
+      <div style="font-size:10px;color:var(--muted)">Micro-Entrepreneur · Réparation Bâtiment</div>
     </div>
     <div id="hdrp" style="text-align:right;display:none">
       <div id="hdrc" style="font-size:11px;color:var(--accent2);font-weight:600"></div>
@@ -259,6 +259,9 @@ textarea.fi{min-height:90px;resize:none}
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2eGtpZGxhY25mY2hhanBoanNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODU3OTYsImV4cCI6MjA5NzI2MTc5Nn0.iK3zs9sBNDTZLhLGT4GY9BI8WKJ7b9KcyUS31Ixa5VI';
   const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
+
+<!-- Librairie de génération de PDF côté navigateur (export direct du rapport, sans passer par l'impression) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 /* ══ CATALOGUE ══ */
@@ -434,7 +437,6 @@ const STATUTS=[
 
 /* ══ STATE ══ */
 const SK="renov_v5";
-/* Sauvegarde projets + réglages ensemble */
 const sv=async d=>{
   try{localStorage.setItem(SK,JSON.stringify(d));}catch{}
   try{
@@ -445,30 +447,16 @@ const sv=async d=>{
     },{onConflict:"cle"});
   }catch(e){console.error("Supabase save:",e);}
 };
-/* Renvoie {projects, rglg} ou null */
-const ld=()=>{
-  try{
-    const d=localStorage.getItem(SK);
-    if(!d) return null;
-    const p=JSON.parse(d);
-    /* Compatibilité ancien format (tableau seul) */
-    if(Array.isArray(p)) return {projects:p, rglg:null};
-    return p;
-  }catch{return null;}
-};
+const ld=()=>{try{const d=localStorage.getItem(SK);return d?JSON.parse(d):null;}catch{return null;}};
 
 async function syncFromSupabase(){
   try{
     const {data,error}=await db.from("reglages").select("valeur").eq("cle","app_state").maybeSingle();
     if(error || !data?.valeur) return;
-    const parsed=JSON.parse(data.valeur);
-    /* Compatibilité ancien format (tableau seul) */
-    const projects=Array.isArray(parsed)?parsed:(parsed.projects||[]);
-    const rglg=Array.isArray(parsed)?null:(parsed.rglg||null);
-    if(projects.length>0||rglg){
-      S.projects=projects.length>0?projects:S.projects;
-      if(rglg) S.rglg={...S.rglg,...rglg};
-      try{localStorage.setItem(SK,JSON.stringify({projects:S.projects,rglg:S.rglg}));}catch{}
+    const projects=JSON.parse(data.valeur);
+    if(Array.isArray(projects)){
+      S.projects=projects;
+      try{localStorage.setItem(SK,JSON.stringify(projects));}catch{}
       render();
     }
   }catch(e){console.error("Supabase load:",e);}
@@ -498,16 +486,14 @@ const SEED=[{
   },
 }];
 
-const _ld=ld();
-const _defRglg={nom:"C R B",siret:"999 383 920 00017",tel:"06 31 76 59 84",email:"",adresse:"80 Rue Charles GIRAUD, 59880 SAINT-SAULVE",hon_pct:"2"};
 let S={
-  projects:(_ld?.projects)||SEED, cur:null, sub:null, tab:"projets",
+  projects:ld()||SEED, cur:null, sub:null, tab:"projets",
   aiText:"", genRap:false,
   catOpenSec:null, catSearch:"", catAdded:{},
   activeRoom:"salon", coutsView:"pieces",
   wizStep:0, openLigne:null, photoView:null,
   filtreRec:"all", filtreStatut:"all", tri:"date", search:"",
-  rglg:{..._defRglg,...(_ld?.rglg||{})},
+  rglg:{nom:"C R B",siret:"999 383 920 00017",tel:"06 31 76 59 84",email:"",adresse:"80 Rue Charles GIRAUD, 59880 SAINT-SAULVE",hon_pct:"2"},
 };
 
 const conclu=p=>{
@@ -536,7 +522,7 @@ function render(){
   if(S.cur){hp.style.display="block";document.getElementById("hdrc").textContent=S.cur.client;document.getElementById("hdrs").textContent=S.cur.surface+"m² · "+S.cur.ville;}
   else hp.style.display="none";
   document.querySelectorAll(".ni").forEach(el=>el.classList.toggle("on",el.dataset.tab===S.tab));
-  sv({projects:S.projects,rglg:S.rglg});
+  sv(S.projects);
   if(S.tab==="projets")mc.innerHTML=rProjets();
   else if(S.tab==="detail")mc.innerHTML=S.cur?rDetail():`<div class="empty"><div class="ei">📋</div><div class="et">Ouvrez un projet</div><p>Allez dans Projets et sélectionnez un bien</p></div>`;
   else if(S.tab==="couts")mc.innerHTML=S.cur?rCouts():`<div class="empty"><div class="ei">💶</div><div class="et">Ouvrez un projet d'abord</div></div>`;
@@ -840,9 +826,10 @@ function rRapport(){
   </div>
   <div class="cbb ${c.cls}" style="padding:14px"><span style="font-size:30px">${c.emo}</span><div><div class="sy" style="font-size:17px;font-weight:800">${c.rec}</div><div style="font-size:12px;color:var(--muted)">Niveau : ${c.niv} · Score ${c.score}/100</div></div></div>
   <div class="card" style="background:var(--navy3)"><div style="font-size:10px;color:var(--muted);line-height:1.6;text-align:center">${S.rglg.nom} · SIRET ${S.rglg.siret}<br/>${S.rglg.adresse} · ${S.rglg.email}<br/>TVA non applicable — art. 293B du CGI</div></div>
-  <button class="btn bp no-print" onclick="toast('📄 Impression lancée');window.print()">🖨️ Imprimer / Exporter PDF</button>
+  <button class="btn bp no-print" id="btnExportPdf" onclick="exportRapportPDF()">⬇️ Télécharger le PDF</button>
   <div style="height:7px" class="no-print"></div>
   <button class="btn bs no-print" onclick="toast('📤 Partage en cours…')">📤 Partager le rapport</button>
+  <div style="text-align:center;margin-top:8px" class="no-print"><span style="font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline" onclick="window.print()">Aperçu impression navigateur</span></div>
   <div class="pdf-mention">Rapport généré par CRB · ${new Date().toLocaleDateString("fr-FR")}<br/>Document à titre indicatif — non contractuel</div>`;
   return h;
 }
@@ -1230,23 +1217,9 @@ function rReglages(){
   <div style="height:7px"></div>
   <button class="btn bs" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="if(confirm('Réinitialiser toutes les données ?')){localStorage.removeItem('${SK}');location.reload();}">🗑️ Réinitialiser l'application</button>`;
 }
-function updateHdrTexts(){
-  const nom=S.rglg?.s_nom||S.rglg?.nom||"C R B";
-  const act=S.rglg?.s_activite||"Micro-Entrepreneur · Réparation Bâtiment";
-  const el_nom=document.getElementById("hdr-nom");
-  const el_act=document.getElementById("hdr-activite");
-  const el_ini=document.getElementById("hdr-logo-initiales");
-  if(el_nom) el_nom.textContent=nom;
-  if(el_act) el_act.textContent=act;
-  if(el_ini) el_ini.textContent=(nom.replace(/\s+/g,"")||"CRB").slice(0,3).toUpperCase();
-}
 function saveRglg(){
   const g=v=>document.getElementById(v)?.value||"";
-  S.rglg={...S.rglg,nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
-  /* Sauvegarde vers localStorage ET Supabase */
-  sv({projects:S.projects,rglg:S.rglg});
-  /* Mettre à jour la bannière immédiatement */
-  updateHdrTexts();
+  S.rglg={nom:g("rg_nom"),siret:g("rg_siret"),tel:g("rg_tel"),email:g("rg_email"),adresse:g("rg_adresse"),hon_pct:g("rg_hon"),s_nom:g("s-nom"),s_activite:g("s-activite")};
   toast("✅ Réglages sauvegardés");
 }
 function exportData(){const d=localStorage.getItem(SK);if(d){navigator.clipboard?.writeText(d);toast("📤 Données copiées");}else toast("Aucune donnée");}
@@ -1432,6 +1405,380 @@ function doDelProj(id){
 render();
 </script>
 
+<!-- ══ EXPORT PDF DIRECT DU RAPPORT (sans passer par l'impression navigateur) ══ -->
+<script>
+async function exportRapportPDF(){
+  if(typeof window.jspdf==="undefined"){toast("⚠️ Librairie PDF indisponible — vérifiez la connexion");return;}
+  const p=S.cur;
+  if(!p){toast("⚠️ Aucun dossier ouvert");return;}
+  const btn=document.getElementById("btnExportPdf");
+  const oldLabel=btn?btn.innerHTML:null;
+  if(btn){btn.innerHTML='<span class="spin"></span>Génération du PDF…';btn.disabled=true;}
+  toast("🧾 Génération du PDF…");
+  try{
+    await buildRapportPDF(p);
+    toast("✅ PDF téléchargé");
+  }catch(e){
+    console.error("Erreur génération PDF:",e);
+    toast("❌ Erreur lors de la génération du PDF");
+  }finally{
+    if(btn){btn.innerHTML=oldLabel;btn.disabled=false;}
+  }
+}
+
+async function buildRapportPDF(p){
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  /* Les polices standard PDF (WinAnsi) ne savent pas afficher certains caractères
+     produits par toLocaleString("fr-FR") (espace fine insécable entre les milliers)
+     ni le "²" de "m²" : on les remplace avant tout rendu pour éviter les glyphes cassés. */
+  (function(){
+    const raw=doc.text.bind(doc);
+    const clean=s=>String(s).replace(/\u00b2/g,"2").replace(/[\u202f\u00a0\u2009\u2007]/g," ");
+    doc.text=function(text,x,y,opts){
+      const t=Array.isArray(text)?text.map(clean):clean(text);
+      return raw(t,x,y,opts);
+    };
+  })();
+  const PAGE_W=210,PAGE_H=297,MX=15,CW=PAGE_W-2*MX,FOOTER_H=16,BOTTOM=PAGE_H-FOOTER_H;
+
+  const COL={
+    navy:[28,46,74],navy3:[49,80,138],accent:[59,130,246],accent2:[96,165,250],
+    gold:[245,158,11],green:[16,185,129],red:[239,68,68],orange:[249,115,22],
+    purple:[139,92,246],dark:[26,26,26],muted:[110,118,128],
+    lightBg:[244,246,249],lightBorder:[221,227,234],white:[255,255,255]
+  };
+  const STATUS_COLORS={acheter:COL.green,negocier:COL.gold,revoir:COL.orange,abandonner:COL.red};
+  const DIAG_COLORS={ok:COL.green,a_prevoir:COL.gold,critique:COL.red};
+  const DIAG_LABELS={ok:"OK",a_prevoir:"À prévoir",critique:"Critique"};
+
+  const d=p.diagnostics||{},c=conclu(p),t=tots(p.lignes),photosAll=p.photos||{};
+  const imprev=Math.round(t.art*.1);
+  const st=STATUTS.find(s=>s.key===p.statut)||STATUTS[0];
+  const ref=/^[0-9]+$/.test(String(p.id))?("RAP-"+String(p.id).padStart(4,"0")):("RAP-"+String(p.id).toUpperCase());
+  const editDate=new Date().toLocaleDateString("fr-FR");
+  const totalPhotos=Object.values(photosAll).reduce((s,arr)=>s+(arr||[]).length,0);
+
+  const roomsUsed=ROOMS.filter(rm=>(p.lignes?.[rm.key]||[]).some(l=>Number(l.qte)>0)||(photosAll[rm.key]||[]).length>0);
+  const dimsCache={};
+  const allSrcs=[];
+  roomsUsed.forEach(rm=>(photosAll[rm.key]||[]).forEach(src=>allSrcs.push(src)));
+  await Promise.all(allSrcs.map(src=>new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{dimsCache[src]={w:img.naturalWidth||1,h:img.naturalHeight||1};res();};
+    img.onerror=()=>{dimsCache[src]={w:1,h:1};res();};
+    img.src=src;
+  })));
+
+  function imgFormat(src){const m=/^data:image\/(\w+);/.exec(src);let f=m?m[1].toUpperCase():"JPEG";if(f==="JPG")f="JPEG";return f;}
+  function tint(color,amount=0.16){return[Math.round(255*(1-amount)+color[0]*amount),Math.round(255*(1-amount)+color[1]*amount),Math.round(255*(1-amount)+color[2]*amount)];}
+  function setFill(rgb){doc.setFillColor(rgb[0],rgb[1],rgb[2]);}
+  function setText(rgb){doc.setTextColor(rgb[0],rgb[1],rgb[2]);}
+  function setDraw(rgb){doc.setDrawColor(rgb[0],rgb[1],rgb[2]);}
+
+  let y=0;
+  function drawContinuationHeader(){
+    setFill(COL.navy);doc.rect(0,0,PAGE_W,16,"F");
+    setText(COL.white);doc.setFont("helvetica","bold");doc.setFontSize(11);
+    doc.text((S.rglg.nom||"CRB")+" — Rapport "+ref,MX,10);
+    setText(COL.accent2);doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.text(String(p.client||""),PAGE_W-MX,10,{align:"right"});
+  }
+  function newPage(){doc.addPage();drawContinuationHeader();y=26;}
+  function ensure(h){if(y+h>BOTTOM)newPage();}
+
+  function badge(text,color,x,yTop,opts={}){
+    const fs=opts.fontSize||8;
+    doc.setFont("helvetica","bold");doc.setFontSize(fs);
+    const padX=opts.padX??2.8,h=opts.h??5.6;
+    const w=doc.getTextWidth(text)+padX*2;
+    const bx=opts.align==="right"?x-w:x;
+    setFill(tint(color,0.16));
+    doc.roundedRect(bx,yTop,w,h,h/2,h/2,"F");
+    setText(color);
+    doc.text(text,bx+w/2,yTop+h/2+1.05,{align:"center"});
+    return{x:bx,w,h};
+  }
+  function sectionTitle(title){
+    ensure(14);
+    setFill(COL.accent);doc.rect(MX,y,1.3,6,"F");
+    setText(COL.navy);doc.setFont("helvetica","bold");doc.setFontSize(12.5);
+    doc.text(title,MX+4,y+5);
+    y+=11;
+  }
+  function infoBox(x,w,title,lines){
+    const h=11+(lines.length-1)*5.2+5;
+    setFill(COL.lightBg);setDraw(COL.lightBorder);doc.setLineWidth(0.3);
+    doc.roundedRect(x,y,w,h,2.5,2.5,"FD");
+    setText(COL.accent);doc.setFont("helvetica","bold");doc.setFontSize(8.5);
+    doc.text(title,x+5,y+7);
+    let ly=y+13;
+    lines.forEach((ln,i)=>{
+      doc.setFont("helvetica",i===0?"bold":"normal");
+      doc.setFontSize(i===0?9.5:8.5);
+      setText(COL.dark);
+      doc.text(String(ln),x+5,ly);
+      ly+=5.2;
+    });
+    return h;
+  }
+  function miniStat(x,w,label,value){
+    setFill(COL.lightBg);setDraw(COL.lightBorder);doc.setLineWidth(0.3);
+    doc.roundedRect(x,y,w,16,2.5,2.5,"FD");
+    setText(COL.muted);doc.setFont("helvetica","bold");doc.setFontSize(7);
+    doc.text(label.toUpperCase(),x+w/2,y+6,{align:"center"});
+    setText(COL.dark);doc.setFont("helvetica","bold");doc.setFontSize(10.5);
+    doc.text(String(value),x+w/2,y+12.5,{align:"center"});
+  }
+
+  /* ── En-tête principal ── */
+  setFill(COL.navy);doc.rect(0,0,PAGE_W,40,"F");
+  const logo=(()=>{try{return localStorage.getItem("entreprise_logo");}catch{return null;}})();
+  let logoDrawn=false;
+  if(logo){try{doc.addImage(logo,imgFormat(logo),MX,9,22,22);logoDrawn=true;}catch{}}
+  if(!logoDrawn){
+    setFill(COL.accent);doc.roundedRect(MX,9,22,22,3,3,"F");
+    setText(COL.white);doc.setFont("helvetica","bold");doc.setFontSize(13);
+    const initials=(S.rglg.nom||"CRB").split(" ").filter(Boolean).map(w=>w[0]).join("").slice(0,3).toUpperCase()||"CRB";
+    doc.text(initials,MX+11,9+22/2+1.4,{align:"center"});
+  }
+  setText(COL.white);doc.setFont("helvetica","bold");doc.setFontSize(15);
+  doc.text(S.rglg.nom||"CRB",MX+27,17);
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);setText([200,210,225]);
+  doc.text("Coaching Rénovation & Bricolage",MX+27,22.5);
+  setText([170,185,210]);doc.setFontSize(7.5);
+  doc.text(String(S.rglg.adresse||""),MX+27,27.5);
+  const tl=[];if(S.rglg.tel)tl.push("Tél : "+S.rglg.tel);if(S.rglg.email)tl.push(S.rglg.email);
+  if(tl.length)doc.text(tl.join("   ·   "),MX+27,31.5);
+  setText(COL.white);doc.setFont("helvetica","bold");doc.setFontSize(20);
+  doc.text("RAPPORT",PAGE_W-MX,17,{align:"right"});
+  setText(COL.accent2);doc.setFontSize(11);
+  doc.text(ref,PAGE_W-MX,24,{align:"right"});
+  setText([170,185,210]);doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+  doc.text("Édité le "+editDate,PAGE_W-MX,30,{align:"right"});
+  y=48;
+
+  /* ── Émetteur / Client ── */
+  const emLines=[S.rglg.nom||"CRB",S.rglg.adresse||""];
+  if(S.rglg.tel)emLines.push("Tél : "+S.rglg.tel);
+  if(S.rglg.email)emLines.push(S.rglg.email);
+  emLines.push("SIRET : "+(S.rglg.siret||"—"));
+  const clLines=[p.client||"—",(p.adresse||"")+(p.ville?", "+p.ville:"")];
+  if(p.tel)clLines.push("Tél : "+p.tel);
+  if(p.email)clLines.push(p.email);
+  const boxW=(CW-6)/2;
+  const h1=infoBox(MX,boxW,"ÉMETTEUR",emLines);
+  const h2=infoBox(MX+boxW+6,boxW,"CLIENT",clLines);
+  y+=Math.max(h1,h2)+8;
+
+  /* ── Date / Référence / Statut ── */
+  ensure(16);
+  const gw=(CW-2*5)/3;
+  miniStat(MX,gw,"Date de visite",fmtD(p.date_visite));
+  miniStat(MX+gw+5,gw,"Référence",ref);
+  miniStat(MX+2*(gw+5),gw,"Statut",st.label);
+  y+=16+10;
+
+  /* ── Titre rapport ── */
+  ensure(16);
+  setText(COL.navy);doc.setFont("helvetica","bold");doc.setFontSize(13);
+  doc.text("RAPPORT DE VISITE & ESTIMATION",PAGE_W/2,y+6,{align:"center"});
+  setDraw(COL.lightBorder);doc.setLineWidth(0.4);
+  doc.line(MX,y+10,PAGE_W-MX,y+10);
+  y+=17;
+
+  /* ── Bien concerné ── */
+  sectionTitle("Bien concerné");
+  ensure(10);
+  let bx=MX;
+  const chip=(text,color)=>{const w=badge(text,color,bx,y,{fontSize:8.5,h:6,padX:3}).w;bx+=w+4;};
+  chip(p.type_bien||"—",COL.green);
+  chip((p.surface||"—")+" m²",COL.accent2);
+  chip(fe(p.prix_estime),COL.accent2);
+  chip(p.objectif||"—",COL.muted);
+  y+=6+9;
+
+  /* ── Diagnostic technique ── */
+  sectionTitle("Diagnostic technique");
+  ensure(9);
+  setFill(COL.navy);doc.rect(MX,y,CW,7,"F");
+  setText(COL.white);doc.setFont("helvetica","bold");doc.setFontSize(8.5);
+  doc.text("DIAGNOSTIC",MX+4,y+4.8);
+  doc.text("STATUT",PAGE_W-MX-4,y+4.8,{align:"right"});
+  y+=7;
+  DIAGS.forEach((it,i)=>{
+    ensure(8);
+    if(i%2===1){setFill([249,250,252]);doc.rect(MX,y,CW,7.4,"F");}
+    setText(COL.dark);doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.text(it.label,MX+4,y+5.1);
+    const sk=d[it.key],lbl=DIAG_LABELS[sk]||"Non renseigné",col=DIAG_COLORS[sk]||COL.muted;
+    badge(lbl,col,PAGE_W-MX-4,y+1,{align:"right",fontSize:7.5,h:5.2});
+    y+=7.4;
+  });
+  y+=9;
+
+  /* ── Estimation détaillée par pièce (+ photos) ── */
+  sectionTitle("Estimation détaillée par pièce"+(totalPhotos>0?` · ${totalPhotos} photo${totalPhotos>1?"s":""}`:""));
+  if(t.art>0||totalPhotos>0){
+    roomsUsed.forEach(rm=>{
+      const rmLines=(p.lignes?.[rm.key]||[]).filter(l=>Number(l.qte)>0);
+      const rt=rtots(p.lignes?.[rm.key]||[]);
+      const surfRoom=(p.surfaces||{})[rm.key];
+      const photos=photosAll[rm.key]||[];
+      if(!rt.art&&!photos.length)return;
+
+      ensure(13);
+      setFill(COL.lightBg);doc.rect(MX,y,CW,8,"F");
+      setText(COL.navy);doc.setFont("helvetica","bold");doc.setFontSize(10);
+      doc.text(rm.label,MX+4,y+5.5);
+      let labelW=doc.getTextWidth(rm.label);
+      if(surfRoom)badge(surfRoom+" m²",COL.accent2,MX+8+labelW,y+1.3,{fontSize:7,h:4.8});
+      if(rt.art>0){setText(COL.gold);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(fe(rt.art),PAGE_W-MX-4,y+5.5,{align:"right"});}
+      y+=10;
+
+      rmLines.forEach(l=>{
+        ensure(7);
+        setText(COL.dark);doc.setFont("helvetica","normal");doc.setFontSize(9);
+        doc.text(`${l.label}  ×${l.qte} ${l.unit}`,MX+4,y+4.5);
+        setText(COL.gold);doc.setFont("helvetica","bold");
+        doc.text(fe(Number(l.qte)*l.art),PAGE_W-MX-4,y+4.5,{align:"right"});
+        y+=6;
+        const taches=l.taches||[];
+        if(taches.length){
+          const done=taches.filter(tk=>tk.done).length;
+          const tlist=taches.map(tk=>(tk.done?"[x] ":"[ ] ")+tk.label).join("   ·   ")+`   (${done}/${taches.length})`;
+          setText(COL.muted);doc.setFont("helvetica","italic");doc.setFontSize(7.5);
+          const wrapped=doc.splitTextToSize(tlist,CW-10);
+          wrapped.forEach(ln=>{ensure(5);doc.text(ln,MX+6,y+3.6);y+=4.6;});
+        }
+      });
+
+      if(photos.length){
+        const cols=4,gap=4,cellW=(CW-(cols-1)*gap)/cols,cellH=30;
+        let col=0;
+        photos.forEach(src=>{
+          if(col===0)ensure(cellH+4);
+          const cx=MX+col*(cellW+gap);
+          setFill(COL.white);setDraw(COL.lightBorder);doc.setLineWidth(0.3);
+          doc.roundedRect(cx,y,cellW,cellH,1.5,1.5,"FD");
+          const dim=dimsCache[src]||{w:1,h:1};
+          const scale=Math.min((cellW-2)/dim.w,(cellH-2)/dim.h);
+          const iw=dim.w*scale,ih=dim.h*scale;
+          try{doc.addImage(src,imgFormat(src),cx+(cellW-iw)/2,y+(cellH-ih)/2,iw,ih);}catch{}
+          col++;
+          if(col===cols){col=0;y+=cellH+gap;}
+        });
+        if(col!==0)y+=cellH+gap;
+      }
+      y+=4;
+    });
+
+    ensure(36);
+    setFill(COL.navy3);doc.roundedRect(MX,y,CW,34,2.5,2.5,"F");
+    setText(COL.white);
+    let ty=y+8;
+    const totalRow=(label,value,bold)=>{
+      doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(bold?11:9);
+      doc.text(label,MX+6,ty);doc.text(value,PAGE_W-MX-6,ty,{align:"right"});
+      ty+=bold?7:6;
+    };
+    totalRow("Artisans",fe(t.art));
+    totalRow("Auto-rénovation",fe(t.auto));
+    totalRow("Provision imprévus (+10%)",fe(imprev));
+    setDraw([255,255,255]);doc.setLineWidth(0.2);doc.line(MX+6,ty-2,PAGE_W-MX-6,ty-2);
+    ty+=2;
+    totalRow("TOTAL ESTIMÉ TTC",fe(t.art+imprev),true);
+    y+=34+6;
+    setText(COL.muted);doc.setFont("helvetica","italic");doc.setFontSize(7.5);
+    doc.text("TVA non applicable — art. 293 B du CGI",PAGE_W/2,y,{align:"center"});
+    y+=9;
+  }else{
+    ensure(8);
+    setText(COL.muted);doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.text("Aucune estimation détaillée renseignée pour ce dossier.",MX+4,y+5);
+    y+=14;
+  }
+
+  /* ── Ordre des travaux recommandé ── */
+  sectionTitle("Ordre des travaux recommandé");
+  STEPS.forEach(s=>{
+    ensure(12);
+    setFill(COL.accent);doc.circle(MX+4,y+4,4,"F");
+    setText(COL.white);doc.setFont("helvetica","bold");doc.setFontSize(8);
+    doc.text(String(s.n),MX+4,y+5.2,{align:"center"});
+    setText(COL.dark);doc.setFont("helvetica","bold");doc.setFontSize(9.5);
+    doc.text(s.title,MX+11,y+3.2);
+    setText(COL.muted);doc.setFont("helvetica","normal");doc.setFontSize(8);
+    doc.text(s.desc,MX+11,y+7.4);
+    y+=12;
+  });
+  y+=6;
+
+  /* ── Risques identifiés ── */
+  if((p.risks||[]).length){
+    sectionTitle("Risques identifiés");
+    p.risks.forEach(r2=>{
+      const col=r2.severity==="Élevé"?COL.red:r2.severity==="Moyen"?COL.gold:COL.green;
+      const wrapped=doc.splitTextToSize(r2.description||"",CW-46);
+      ensure(8+wrapped.length*4);
+      setFill(col);doc.circle(MX+2,y+3,1.6,"F");
+      setText(COL.dark);doc.setFont("helvetica","bold");doc.setFontSize(9);
+      doc.text(r2.type||"—",MX+8,y+3.2);
+      setText(COL.muted);doc.setFont("helvetica","normal");doc.setFontSize(8);
+      doc.text(wrapped,MX+8,y+7.4);
+      badge(r2.severity||"—",col,PAGE_W-MX-4,y,{align:"right",fontSize:7.5,h:5.4});
+      y+=7.4+wrapped.length*4+3;
+    });
+    y+=5;
+  }
+
+  /* ── Notes consultant ── */
+  if(p.notes){
+    sectionTitle("Notes consultant");
+    setText(COL.dark);doc.setFont("helvetica","normal");doc.setFontSize(9);
+    const wrapped=doc.splitTextToSize(p.notes,CW-8);
+    wrapped.forEach(ln=>{ensure(5.5);doc.text(ln,MX+4,y+4);y+=5.2;});
+    y+=6;
+  }
+
+  /* ── Conclusion expertisée ── */
+  sectionTitle("Conclusion expertisée");
+  const conclusionText=(S.aiText&&S.aiText.trim())?S.aiText:"Ce bien présente un potentiel intéressant au regard du marché local. L'estimation détaillée par poste permet d'envisager une stratégie mixte artisans/auto-rénovation. Les postes critiques devront être confiés à des professionnels qualifiés. Une négociation sur le prix d'acquisition est recommandée pour sécuriser la rentabilité.";
+  setText(COL.dark);doc.setFont("helvetica","normal");doc.setFontSize(9);
+  const cw2=doc.splitTextToSize(conclusionText,CW-8);
+  cw2.forEach(ln=>{ensure(5.5);doc.text(ln,MX+4,y+4);y+=5.2;});
+  y+=7;
+
+  /* ── Recommandation finale ── */
+  ensure(22);
+  const recCol=STATUS_COLORS[c.cls]||COL.accent;
+  setFill(tint(recCol,0.14));setDraw(recCol);doc.setLineWidth(0.4);
+  doc.roundedRect(MX,y,CW,20,3,3,"FD");
+  setText(recCol);doc.setFont("helvetica","bold");doc.setFontSize(14);
+  doc.text(c.rec,MX+8,y+9);
+  setText(COL.muted);doc.setFont("helvetica","normal");doc.setFontSize(9);
+  doc.text(`Niveau : ${c.niv}  ·  Score ${c.score}/100`,MX+8,y+15.5);
+  y+=20;
+
+  /* ── Pied de page sur toutes les pages ── */
+  const totalPages=doc.getNumberOfPages();
+  for(let i=1;i<=totalPages;i++){
+    doc.setPage(i);
+    setDraw(COL.lightBorder);doc.setLineWidth(0.3);
+    doc.line(MX,PAGE_H-FOOTER_H+2,PAGE_W-MX,PAGE_H-FOOTER_H+2);
+    setText(COL.muted);doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+    doc.text(`${S.rglg.nom||"CRB"} · SIRET ${S.rglg.siret||""} · ${S.rglg.adresse||""}`,PAGE_W/2,PAGE_H-FOOTER_H+7,{align:"center"});
+    doc.setFont("helvetica","italic");doc.setFontSize(7);
+    doc.text("Document à titre indicatif — non contractuel",PAGE_W/2,PAGE_H-FOOTER_H+11,{align:"center"});
+    doc.setFont("helvetica","normal");
+    doc.text(`Page ${i}/${totalPages}`,PAGE_W-MX,PAGE_H-FOOTER_H+11,{align:"right"});
+  }
+
+  const fname="Rapport_"+(p.client||"client").replace(/[^a-zA-Z0-9]+/g,"_")+"_"+ref+".pdf";
+  doc.save(fname);
+}
+</script>
+
 
 <script>
 function setLogoUI(logo){
@@ -1459,24 +1806,19 @@ function loadLogo(event){
  const reader=new FileReader();
  reader.onload=function(e){
    const logo=e.target.result;
-   /* Sauvegarde logo dans S.rglg + Supabase */
-   S.rglg.logo=logo;
-   sv({projects:S.projects,rglg:S.rglg});
+   localStorage.setItem('entreprise_logo',logo);
    setLogoUI(logo);
  };
  reader.readAsDataURL(file);
 }
 function removeLogo(){
- delete S.rglg.logo;
- sv({projects:S.projects,rglg:S.rglg});
+ localStorage.removeItem('entreprise_logo');
  clearLogoUI();
 }
 window.addEventListener('load',()=>{
- /* Mettre à jour le texte de la bannière */
- updateHdrTexts();
- /* Charger logo depuis S.rglg (Supabase/localStorage) */
- const logo=S.rglg?.logo||null;
- if(logo) setLogoUI(logo);
+ const logo=localStorage.getItem('entreprise_logo');
+ if(!logo) return;
+ setLogoUI(logo);
 });
 </script>
 
